@@ -7,9 +7,8 @@ import java.io.IOException;
 
 public class GrayscalePreprocessing extends Preprocessing {
 
-    public GrayscalePreprocessing(int width, int height) {
-        super(width, height);
-    }
+    public GrayscalePreprocessing(int width, int height, boolean normalize) { super(width, height, 1, normalize); }
+    public GrayscalePreprocessing(int width, int height) { super(width, height, 1); }
 
     @Override
     protected float[] processImage(BufferedImage img) throws IOException {
@@ -22,7 +21,12 @@ public class GrayscalePreprocessing extends Preprocessing {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int gray = resized.getRaster().getSample(x, y, 0);
-                pixels[y * width + x] = gray / 255.0f; // Normalisiert
+                if (normalize) {
+                    pixels[y * width + x] = gray / 255.0f; // Normalisiert
+                } else {
+                    pixels[y * width + x] = gray;
+                }
+
             }
         }
 

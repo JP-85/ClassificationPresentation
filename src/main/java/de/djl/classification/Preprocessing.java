@@ -15,10 +15,21 @@ public abstract class Preprocessing {
 
     protected final int width;
     protected final int height;
+    protected final int channels;
+    protected final boolean normalize;
 
-    public Preprocessing(int width, int height) {
+    public Preprocessing(int width, int height, int channels, boolean normalize) {
         this.width = width;
         this.height = height;
+        this.channels = channels;
+        this.normalize = normalize;
+    }
+
+    public Preprocessing(int width, int height, int channels) {
+        this.width = width;
+        this.height = height;
+        this.channels = channels;
+        this.normalize = true;
     }
 
     /**
@@ -30,11 +41,11 @@ public abstract class Preprocessing {
      * Führt das Preprocessing aus und gibt ein CNNDataset zurück.
      *
      * @param datasetName Name des erzeugten Datasets
-     * @param rootPath    Root-Verzeichnis mit Subfoldern je Klasse
+     * @param rootPath    Root-Verzeichnis mit Unterordnern je Klasse
      * @return CNNDataset mit allen erfolgreich verarbeiteten Bildern
      */
     public CNNDataset run(String datasetName, String rootPath) {
-        CNNDataset dataset = new CNNDataset(datasetName);
+        CNNDataset dataset = new CNNDataset(datasetName, this.width, this.height, this.channels, normalize);
         Path rootDir = Paths.get(rootPath);
 
         Map<String, Integer> labelMap = new HashMap<>();
@@ -55,7 +66,7 @@ public abstract class Preprocessing {
                             }
 
                             String category = relative.getName(0).toString();
-                            int label = labelMap.computeIfAbsent(category, k -> labelCounter[0]++);
+                            int label = labelMap.computeIfAbsent(category, _ -> labelCounter[0]++);
 
                             BufferedImage img = ImageIO.read(path.toFile());
                             if (img == null) {

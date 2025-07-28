@@ -8,7 +8,11 @@ import java.io.IOException;
 public class RGBPreprocessing extends Preprocessing {
 
     public RGBPreprocessing(int width, int height) {
-        super(width, height);
+        super(width, height, 3);
+    }
+
+    public RGBPreprocessing(int width, int height, boolean nomalize) {
+        super(width, height, 3,  nomalize);
     }
 
     @Override
@@ -28,9 +32,16 @@ public class RGBPreprocessing extends Preprocessing {
                 int gVal = (rgb >> 8) & 0xFF;
                 int b = rgb & 0xFF;
 
-                pixels[idx++] = r / 255.0f;
-                pixels[idx++] = gVal / 255.0f;
-                pixels[idx++] = b / 255.0f;
+                if (normalize) {
+                    pixels[idx++] = r / 255.0f;
+                    pixels[idx++] = gVal / 255.0f;
+                    pixels[idx++] = b / 255.0f;
+                } else {
+                    pixels[idx++] = r;
+                    pixels[idx++] = gVal;
+                    pixels[idx++] = b;
+                }
+
             }
         }
 

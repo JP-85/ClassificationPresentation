@@ -12,6 +12,6 @@ public class Main {
 //        System.out.println(model.block);
         Preprocessing prep = new GrayscalePreprocessing(100, 100);
         CNNDataset catdog = prep.run("CatDogData", "data/PetImages");
-        catdog.writeData("output/catdog100px.ser");
+        catdog.writeSer("catdog100px");
     }
 }
