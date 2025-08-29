@@ -68,16 +68,9 @@ public class DataSetBundle implements Serializable {
     }
 
     // ------------------------------
-    // Hilfsklasse für Rückgabe
-    // ------------------------------
-    public static class Sample {
-        public final NDArray array;
-        public final int label;
-
-        public Sample(NDArray array, int label) {
-            this.array = array;
-            this.label = label;
-        }
+        // Hilfsklasse für Rückgabe
+        // ------------------------------
+        public record Sample(NDArray array, int label) {
     }
 
     // ------------------------------

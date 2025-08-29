@@ -86,7 +86,7 @@ public class CNNPipeline {
     public void run() {
         System.out.println("Starting CNNPipeline...");
 
-        DataSetBundle dataSet = null;
+        DataSetBundle dataSet;
 
         try {
             if (createNewDataset) {
@@ -101,7 +101,6 @@ public class CNNPipeline {
             }
         } catch (Exception e) {
             System.err.println("Error during preprocessing step: " + e.getMessage());
-            e.printStackTrace();
             return;
         }
 

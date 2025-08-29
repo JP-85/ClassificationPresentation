@@ -5,9 +5,9 @@ public class Main {
         // Erstellen eines neuen Datensatzes
         CNNPipeline pipeline = CNNPipeline.builder()
                 .addPreprocessing("PetImages",
-                        "cats_dogs_64",
-                        64,
-                        64,
+                        "cats_dogs_33",
+                        33,
+                        33,
                         true,
                         false);
         pipeline.run();
@@ -17,7 +17,7 @@ public class Main {
 
         // Beispiel 2: Laden eines bestehenden Datensatzes
         CNNPipeline testPipeline = CNNPipeline.builder()
-                .addPreprocessing("cats_dogs_64");
+                .addPreprocessing("cats_dogs_33");
         testPipeline.run();
 
         System.out.println(testPipeline.getDataSet());

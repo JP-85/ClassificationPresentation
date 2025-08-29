@@ -16,6 +16,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+
 public class Preprocessing {
 
     private final String rootPath;
@@ -54,7 +55,6 @@ public class Preprocessing {
             float[] std = {0.229f, 0.224f, 0.225f};
             pipeline.add(new Normalize(mean, std));
         }
-
         int labelIndex = 0;
         for (File classDir : classDirs) {
             File[] images = classDir.listFiles((dir, nameFile) ->
@@ -124,3 +124,4 @@ public class Preprocessing {
         return metadata;
     }
 }
+

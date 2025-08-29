@@ -7,7 +7,6 @@ import ai.djl.training.*;
 import java.nio.file.*;
 
 import ai.djl.*;
-import ai.djl.basicdataset.cv.classification.Mnist;
 import ai.djl.ndarray.types.*;
 import ai.djl.training.*;
 import ai.djl.training.dataset.*;
