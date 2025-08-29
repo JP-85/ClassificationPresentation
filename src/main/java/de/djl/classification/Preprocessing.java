@@ -1,94 +1,126 @@
 package de.djl.classification;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
+import ai.djl.modality.cv.Image;
+import ai.djl.modality.cv.ImageFactory;
+import ai.djl.modality.cv.transform.Normalize;
+import ai.djl.modality.cv.transform.Resize;
+import ai.djl.modality.cv.transform.ToTensor;
+import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDList;
+import ai.djl.ndarray.NDManager;
+import ai.djl.translate.Pipeline;
+import java.io.File;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-public abstract class Preprocessing {
-    private static final Logger logger = LoggerFactory.getLogger(Preprocessing.class);
+public class Preprocessing {
 
-    protected final int width;
-    protected final int height;
-    protected final int channels;
-    protected final boolean normalize;
+    private final String rootPath;
 
-    public Preprocessing(int width, int height, int channels, boolean normalize) {
-        this.width = width;
-        this.height = height;
-        this.channels = channels;
-        this.normalize = normalize;
+    public Preprocessing(String rootDir) {
+        this.rootPath = Paths.get("data", "raw", rootDir).toString();
     }
 
-    public Preprocessing(int width, int height, int channels) {
-        this.width = width;
-        this.height = height;
-        this.channels = channels;
-        this.normalize = true;
-    }
+    public DataSetBundle createDataset(String name, int width, int height,
+                                       boolean normalize, boolean grayscale) throws IOException {
 
-    /**
-     * Muss von Subklassen implementiert werden – verarbeitet ein Bild zu einem float[]-Feature-Vektor.
-     */
-    protected abstract float[] processImage(BufferedImage img) throws IOException;
+        List<float[][][]> rawData = new ArrayList<>();
+        List<Integer> labels = new ArrayList<>();
 
-    /**
-     * Führt das Preprocessing aus und gibt ein CNNDataset zurück.
-     *
-     * @param datasetName Name des erzeugten Datasets
-     * @param rootPath    Root-Verzeichnis mit Unterordnern je Klasse
-     * @return CNNDataset mit allen erfolgreich verarbeiteten Bildern
-     */
-    public CNNDataset run(String datasetName, String rootPath) {
-        CNNDataset dataset = new CNNDataset(datasetName, this.width, this.height, this.channels, normalize);
-        Path rootDir = Paths.get(rootPath);
+        File baseDir = new File(rootPath);
+        File[] classDirs = baseDir.listFiles(File::isDirectory);
 
-        Map<String, Integer> labelMap = new HashMap<>();
-        int[] labelCounter = {0};
-
-        try (Stream<Path> paths = Files.walk(rootDir)) {
-            paths.filter(Files::isRegularFile)
-                    .filter(path -> {
-                        String fileName = path.getFileName().toString().toLowerCase();
-                        return fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".png");
-                    })
-                    .forEach(path -> {
-                        try {
-                            Path relative = rootDir.relativize(path);
-                            if (relative.getNameCount() < 1) {
-                                logger.warn("Bild liegt nicht in Unterverzeichnis: {}", path);
-                                return;
-                            }
-
-                            String category = relative.getName(0).toString();
-                            int label = labelMap.computeIfAbsent(category, _ -> labelCounter[0]++);
-
-                            BufferedImage img = ImageIO.read(path.toFile());
-                            if (img == null) {
-                                logger.warn("Bild konnte nicht geladen werden (null): {}", path);
-                                return;
-                            }
-
-                            float[] pixels = processImage(img);
-                            if (pixels == null) {
-                                logger.warn("Verarbeitung ergab null für Bild: {}", path);
-                                return;
-                            }
-
-                            dataset.addData(pixels, label, category);
-                        } catch (IOException | RuntimeException e) {
-                            logger.warn("Fehler bei Bildverarbeitung: {} – {}", path, e.getMessage());
-                        }
-                    });
-        } catch (IOException e) {
-            logger.error("Fehler beim Durchlauf des Root-Verzeichnisses: {}", e.getMessage());
+        if (classDirs == null || classDirs.length == 0) {
+            throw new IOException("Keine Klassenordner gefunden in: " + rootPath);
         }
 
+        // Extrahieren der Kategorien aus den Ordnernamen
+        List<String> categories = new ArrayList<>();
+        for (File classDir : classDirs) {
+            categories.add(classDir.getName());
+        }
+
+        Map<String, Object> metadata = getMetadata(name, categories, width, height, normalize, grayscale);
+
+        Pipeline pipeline = new Pipeline()
+                .add(new Resize(width, height))
+                .add(new ToTensor());
+
+        if (normalize) {
+            float[] mean = {0.485f, 0.456f, 0.406f};
+            float[] std = {0.229f, 0.224f, 0.225f};
+            pipeline.add(new Normalize(mean, std));
+        }
+
+        int labelIndex = 0;
+        for (File classDir : classDirs) {
+            File[] images = classDir.listFiles((dir, nameFile) ->
+                    nameFile.toLowerCase().endsWith(".jpg") ||
+                            nameFile.toLowerCase().endsWith(".png") ||
+                            nameFile.toLowerCase().endsWith(".jpeg"));
+            if (images == null) continue;
+
+            for (File imgFile : images) {
+                try (NDManager manager = NDManager.newBaseManager()) {
+                    Image img = ImageFactory.getInstance().fromFile(imgFile.toPath());
+                    NDArray arr = img.toNDArray(manager, grayscale ? Image.Flag.GRAYSCALE : Image.Flag.COLOR);
+                    NDList transformed = pipeline.transform(new NDList(arr));
+                    NDArray transformedArr = transformed.getFirst();
+
+                    float[] flat = transformedArr.toFloatArray();
+                    float[][][] imgData = new float[(int) metadata.get("channels")][(int) metadata.get("height")][(int) metadata.get("width")];
+                    int idx = 0;
+                    for (int c = 0; c < (int) metadata.get("channels"); c++) {
+                        for (int h = 0; h < (int) metadata.get("height"); h++) {
+                            for (int w = 0; w < (int) metadata.get("width"); w++) {
+                                imgData[c][h][w] = flat[idx++];
+                            }
+                        }
+                    }
+                    rawData.add(imgData);
+                    labels.add(labelIndex);
+                } catch (Exception e) {
+                    System.out.println("Fehler beim Laden von " + imgFile.getName() + ": " + e.getMessage());
+                }
+            }
+            labelIndex++;
+        }
+
+        DataSetBundle dataset = new DataSetBundle(name, rawData, labels, metadata);
+        dataset.save(name);
+
+        System.out.println("Dataset gespeichert: " + Paths.get("data", "datasets", name + ".ser").toAbsolutePath() +
+                " (" + rawData.size() + " Bilder)");
+
         return dataset;
+    }
+
+    public static DataSetBundle loadDataset(String name) throws IOException, ClassNotFoundException {
+        File file = Paths.get("data", "datasets", name + ".ser").toFile();
+        if (!file.exists()) {
+            throw new IOException("Dataset nicht gefunden: " + file.getAbsolutePath());
+        }
+        return DataSetBundle.load(file);
+    }
+
+    private Map<String, Object> getMetadata(String datasetName, List<String> categories, int width, int height, boolean normalize, boolean grayscale) {
+        ArrayList<Integer> diffLabels = IntStream.range(0, categories.size())
+                .boxed()
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("name", datasetName);
+        metadata.put("categories", categories);
+        metadata.put("diffCategories", categories.size());
+        metadata.put("diffLabels", diffLabels);
+        metadata.put("width", width);
+        metadata.put("height", height);
+        metadata.put("grayscale", grayscale);
+        metadata.put("normalize", normalize);
+        metadata.put("channels", grayscale ? 1 : 3);
+        return metadata;
     }
 }

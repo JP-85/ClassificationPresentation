@@ -23,7 +23,6 @@
             <version>${djl.version}</version>
         </dependency>
 
-
         <!-- PyTorch Runtime -->
         <dependency>
             <groupId>ai.djl.pytorch</groupId>

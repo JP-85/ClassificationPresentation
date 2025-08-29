@@ -1,17 +1,28 @@
 package de.djl.classification;
 
-import ai.djl.Application;
-
-import java.io.IOException;
-
-
 public class Main {
-    public static void main(String[] args) throws IOException {
-//        Application application = Application.CV.IMAGE_CLASSIFICATION;
-//        ClassificationModel model = new ClassificationModel();
-//        System.out.println(model.block);
-        Preprocessing prep = new GrayscalePreprocessing(100, 100);
-        CNNDataset catdog = prep.run("CatDogData", "data/PetImages");
-        catdog.writeSer("catdog100px");
+    public static void main(String[] args) {
+        // Erstellen eines neuen Datensatzes
+        CNNPipeline pipeline = CNNPipeline.builder()
+                .addPreprocessing("PetImages",
+                        "cats_dogs_64",
+                        64,
+                        64,
+                        true,
+                        false);
+        pipeline.run();
+        pipeline.close();
+
+        System.out.println("\n------------------------------------------------\n");
+
+        // Beispiel 2: Laden eines bestehenden Datensatzes
+        CNNPipeline testPipeline = CNNPipeline.builder()
+                .addPreprocessing("cats_dogs_64");
+        testPipeline.run();
+
+        System.out.println(testPipeline.getDataSet());
+        System.out.println(testPipeline.getDataSet().getMetadata());
+
+        testPipeline.close();
     }
 }
