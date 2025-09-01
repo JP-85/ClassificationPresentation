@@ -10,7 +10,10 @@
     "denseUnits": [128],
     "activation": "relu",
     "batchSize": 32,
-    "dropout": 0.3
+    "dropout": 0.3,
+    "baseChannels": 32,
+    "maxChannels": 256,
+    "globalAvgPool": true
   },
   {
     "name": "deep_slow",
@@ -23,72 +26,10 @@
     "denseUnits": [256, 128],
     "activation": "relu",
     "batchSize": 64,
-    "dropout": 0.5
-  },
-  {
-    "name": "light_fast",
-    "stride": 2,
-    "kernel": [3, 3],
-    "maxPoolSize": [3, 3],
-    "optimizer": "rmsprop",
-    "learningRate": 0.0005,
-    "convLayers": 1,
-    "denseUnits": [64],
-    "activation": "leakyrelu",
-    "batchSize": 32,
-    "dropout": 0.2
-  },
-  {
-    "name": "balanced_relu",
-    "stride": 1,
-    "kernel": [3, 3],
-    "maxPoolSize": [2, 2],
-    "optimizer": "adam",
-    "learningRate": 0.0001,
-    "convLayers": 2,
-    "denseUnits": [256],
-    "activation": "relu",
-    "batchSize": 64,
-    "dropout": 0.4
-  },
-  {
-    "name": "regularized_heavy",
-    "stride": 1,
-    "kernel": [5, 5],
-    "maxPoolSize": [2, 2],
-    "optimizer": "adam",
-    "learningRate": 0.001,
-    "convLayers": 3,
-    "denseUnits": [512, 256],
-    "activation": "relu",
-    "batchSize": 32,
-    "dropout": 0.5
-  },
-  {
-    "name": "wider_sparse",
-    "stride": 1,
-    "kernel": [3, 3],
-    "maxPoolSize": [2, 2],
-    "optimizer": "adam",
-    "learningRate": 0.0005,
-    "convLayers": 2,
-    "denseUnits": [512, 256],
-    "activation": "relu",
-    "batchSize": 128,
-    "dropout": 0.6
-  },
-  {
-    "name": "small_deep_sgd",
-    "stride": 1,
-    "kernel": [3, 3],
-    "maxPoolSize": [2, 2],
-    "optimizer": "sgd",
-    "learningRate": 0.005,
-    "convLayers": 4,
-    "denseUnits": [128],
-    "activation": "relu",
-    "batchSize": 32,
-    "dropout": 0.4
+    "dropout": 0.5,
+    "baseChannels": 64,
+    "maxChannels": 512,
+    "globalAvgPool": true
   },
   {
     "name": "minimal_fast_rmsprop",
@@ -101,6 +42,9 @@
     "denseUnits": [32],
     "activation": "relu",
     "batchSize": 16,
-    "dropout": 0.1
+    "dropout": 0.1,
+    "baseChannels": 16,
+    "maxChannels": 128,
+    "globalAvgPool": true
   }
 ]

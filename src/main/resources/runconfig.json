@@ -1,0 +1,42 @@
+[{
+  "setting": "baseline",
+  "settingsJson": "settings.json",
+  "raw": "data/raw/PetImages",
+  "datasetsRoot": "data/datasets",
+  "valSplit": 0.2,
+  "seed": 42,
+  "epochs": 2,
+  "imageSize": 224,
+  "grayscale": false,
+  "shuffleTrain": true,
+
+  "zoo": false,
+  "zooBackbone": "resnet18",
+  "saveActivations": false
+},
+{
+  "setting": "deep_slow",
+  "settingsJson": "settings.json",
+  "raw": "data/raw/PetImages",
+  "datasetsRoot": "data/datasets",
+  "valSplit": 0.2,
+  "seed": 42,
+  "epochs": 5,
+  "imageSize": 224,
+  "grayscale": false,
+  "shuffleTrain": true
+},
+{
+  "setting": "minimal_fast_rmsprop",
+  "settingsJson": "settings.json",
+  "raw": "data/raw/PetImages",
+  "datasetsRoot": "data/datasets",
+  "valSplit": 0.2,
+  "seed": 42,
+  "epochs": 2,
+  "imageSize": 128,
+  "grayscale": false,
+  "shuffleTrain": true,
+  "saveActivations": false
+}
+]

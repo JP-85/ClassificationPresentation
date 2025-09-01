@@ -1,127 +1,194 @@
+// =====================
+// File: src/main/java/de/djl/classification/Preprocessing.java
+// =====================
 package de.djl.classification;
 
-import ai.djl.modality.cv.Image;
-import ai.djl.modality.cv.ImageFactory;
-import ai.djl.modality.cv.transform.Normalize;
-import ai.djl.modality.cv.transform.Resize;
-import ai.djl.modality.cv.transform.ToTensor;
-import ai.djl.ndarray.NDArray;
-import ai.djl.ndarray.NDList;
-import ai.djl.ndarray.NDManager;
-import ai.djl.translate.Pipeline;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.imgscalr.Scalr;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.color.ColorSpace;
+import java.awt.image.BufferedImage;
+import java.awt.image.ColorConvertOp;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.*;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class Preprocessing {
+    private static final Logger log = LoggerFactory.getLogger(Preprocessing.class);
 
-    private final String rootPath;
-
-    public Preprocessing(String rootDir) {
-        this.rootPath = Paths.get("data", "raw", rootDir).toString();
+    public static class Metadata {
+        public List<String> classes;
+        public Map<String, Integer> trainCount;
+        public Map<String, Integer> valCount;
+        public Instant createdAt = Instant.now();
+        public int targetSize;
+        public boolean grayscaleAppearance; // images still saved as 3-channel RGB
+        public List<String> skipped = new ArrayList<>();
     }
 
-    public DataSetBundle createDataset(String name, int width, int height,
-                                       boolean normalize, boolean grayscale) throws IOException {
+    public record PreparedPaths(Path outRoot, Path trainRoot, Path valRoot, Path metadataJson) { }
 
-        List<float[][][]> rawData = new ArrayList<>();
-        List<Integer> labels = new ArrayList<>();
+    private static final Set<String> ALLOWED_EXT = Set.of(
+            ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".webp"
+    );
 
-        File baseDir = new File(rootPath);
-        File[] classDirs = baseDir.listFiles(File::isDirectory);
-
-        if (classDirs == null || classDirs.length == 0) {
-            throw new IOException("Keine Klassenordner gefunden in: " + rootPath);
+    public static PreparedPaths prepareDatasets(
+            Path rawRoot,
+            Path datasetsRoot,
+            double valSplit,
+            long seed,
+            String runName,
+            int targetSize,
+            boolean grayscaleAppearance
+    ) throws IOException {
+        if (!Files.isDirectory(rawRoot)) {
+            throw new IOException("Raw root not found: " + rawRoot);
         }
 
-        // Extrahieren der Kategorien aus den Ordnernamen
-        List<String> categories = new ArrayList<>();
-        for (File classDir : classDirs) {
-            categories.add(classDir.getName());
+        Path outRoot = datasetsRoot.resolve(runName);
+        Path trainRoot = outRoot.resolve("train");
+        Path valRoot = outRoot.resolve("val");
+        Files.createDirectories(trainRoot);
+        Files.createDirectories(valRoot);
+
+        List<Path> classDirs;
+        try (var stream = Files.list(rawRoot)) {
+            classDirs = stream.filter(Files::isDirectory).sorted().collect(Collectors.toList());
         }
+        if (classDirs.isEmpty()) throw new IOException("No class folders under " + rawRoot);
 
-        Map<String, Object> metadata = getMetadata(name, categories, width, height, normalize, grayscale);
+        Random rnd = new Random(seed);
+        Map<String,Integer> trainCount = new LinkedHashMap<>();
+        Map<String,Integer> valCount = new LinkedHashMap<>();
+        List<String> skipped = new ArrayList<>();
 
-        Pipeline pipeline = new Pipeline()
-                .add(new Resize(width, height))
-                .add(new ToTensor());
+        for (Path clsDir : classDirs) {
+            String cls = clsDir.getFileName().toString();
+            List<Path> images;
+            try (var walk = Files.walk(clsDir)) {
+                images = walk.filter(Files::isRegularFile)
+                        .filter(Preprocessing::hasAllowedExt)
+                        .filter(p -> isSupportedImage(p, skipped))
+                        .collect(Collectors.toList());
+            }
+            Collections.shuffle(images, rnd);
 
-        if (normalize) {
-            float[] mean = {0.485f, 0.456f, 0.406f};
-            float[] std = {0.229f, 0.224f, 0.225f};
-            pipeline.add(new Normalize(mean, std));
-        }
-        int labelIndex = 0;
-        for (File classDir : classDirs) {
-            File[] images = classDir.listFiles((dir, nameFile) ->
-                    nameFile.toLowerCase().endsWith(".jpg") ||
-                            nameFile.toLowerCase().endsWith(".png") ||
-                            nameFile.toLowerCase().endsWith(".jpeg"));
-            if (images == null) continue;
+            int n = images.size();
+            int nVal = Math.max(1, (int) Math.round(n * valSplit));
+            int nTrain = n - nVal;
 
-            for (File imgFile : images) {
-                try (NDManager manager = NDManager.newBaseManager()) {
-                    Image img = ImageFactory.getInstance().fromFile(imgFile.toPath());
-                    NDArray arr = img.toNDArray(manager, grayscale ? Image.Flag.GRAYSCALE : Image.Flag.COLOR);
-                    NDList transformed = pipeline.transform(new NDList(arr));
-                    NDArray transformedArr = transformed.getFirst();
+            Path tOut = trainRoot.resolve(cls); Files.createDirectories(tOut);
+            Path vOut = valRoot.resolve(cls);  Files.createDirectories(vOut);
 
-                    float[] flat = transformedArr.toFloatArray();
-                    float[][][] imgData = new float[(int) metadata.get("channels")][(int) metadata.get("height")][(int) metadata.get("width")];
-                    int idx = 0;
-                    for (int c = 0; c < (int) metadata.get("channels"); c++) {
-                        for (int h = 0; h < (int) metadata.get("height"); h++) {
-                            for (int w = 0; w < (int) metadata.get("width"); w++) {
-                                imgData[c][h][w] = flat[idx++];
-                            }
-                        }
-                    }
-                    rawData.add(imgData);
-                    labels.add(labelIndex);
-                } catch (Exception e) {
-                    System.out.println("Fehler beim Laden von " + imgFile.getName() + ": " + e.getMessage());
+            for (int i = 0; i < n; i++) {
+                Path src = images.get(i);
+                Path dst = (i < nTrain ? tOut : vOut).resolve(src.getFileName().toString());
+                try {
+                    transformAndSave(src, dst, targetSize, grayscaleAppearance);
+                } catch (Exception ex) {
+                    skipped.add(src.toString());
+                    log.warn("Skip (transform failed): {} -> {}", src.getFileName(), ex.toString());
                 }
             }
-            labelIndex++;
+            trainCount.put(cls, nTrain);
+            valCount.put(cls, nVal);
+            log.info("Class '{}' -> train={}, val={}", cls, nTrain, nVal);
         }
 
-        DataSetBundle dataset = new DataSetBundle(name, rawData, labels, metadata);
-        dataset.save(name);
+        Metadata md = new Metadata();
+        md.classes = classDirs.stream().map(p -> p.getFileName().toString()).collect(Collectors.toList());
+        md.trainCount = trainCount;
+        md.valCount = valCount;
+        md.targetSize = targetSize;
+        md.grayscaleAppearance = grayscaleAppearance;
+        md.skipped = skipped;
 
-        System.out.println("Dataset gespeichert: " + Paths.get("data", "datasets", name + ".ser").toAbsolutePath() +
-                " (" + rawData.size() + " Bilder)");
+        Path meta = outRoot.resolve("metadata.json");
+        ObjectMapper om = new ObjectMapper();
+        om.registerModule(new JavaTimeModule());
+        om.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        om.writerWithDefaultPrettyPrinter().writeValue(meta.toFile(), md);
 
-        return dataset;
-    }
-
-    public static DataSetBundle loadDataset(String name) throws IOException, ClassNotFoundException {
-        File file = Paths.get("data", "datasets", name + ".ser").toFile();
-        if (!file.exists()) {
-            throw new IOException("Dataset nicht gefunden: " + file.getAbsolutePath());
+        if (!skipped.isEmpty()) {
+            Path skipLog = outRoot.resolve("skipped_images.txt");
+            Files.write(skipLog, skipped);
+            log.warn("Skipped {} images. See {}", skipped.size(), skipLog.toAbsolutePath());
         }
-        return DataSetBundle.load(file);
+
+        log.info("Prepared dataset at {}", outRoot.toAbsolutePath());
+        return new PreparedPaths(outRoot, trainRoot, valRoot, meta);
     }
 
-    private Map<String, Object> getMetadata(String datasetName, List<String> categories, int width, int height, boolean normalize, boolean grayscale) {
-        ArrayList<Integer> diffLabels = IntStream.range(0, categories.size())
-                .boxed()
-                .collect(Collectors.toCollection(ArrayList::new));
+    private static boolean hasAllowedExt(Path p) {
+        String n = p.getFileName().toString().toLowerCase(Locale.ROOT);
+        for (String ext : ALLOWED_EXT) if (n.endsWith(ext)) return true;
+        return false;
+    }
 
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", datasetName);
-        metadata.put("categories", categories);
-        metadata.put("diffCategories", categories.size());
-        metadata.put("diffLabels", diffLabels);
-        metadata.put("width", width);
-        metadata.put("height", height);
-        metadata.put("grayscale", grayscale);
-        metadata.put("normalize", normalize);
-        metadata.put("channels", grayscale ? 1 : 3);
-        return metadata;
+    private static boolean isSupportedImage(Path p, List<String> skipped) {
+        // Ext ok?
+        if (!hasAllowedExt(p)) return false;
+        // MIME, wenn ermittelbar
+        String ct = null;
+        try { ct = Files.probeContentType(p); } catch (Exception ignore) {}
+        if (ct != null && !ct.startsWith("image/")) {
+            if (skipped != null) skipped.add(p.toString() + " [mime=" + ct + "]");
+            return false;
+        }
+        // Tatsächlich lesbar?
+        return isReadableImage(p, skipped);
+    }
+
+    private static boolean isReadableImage(Path p, List<String> skipped) {
+        try {
+            BufferedImage bi = ImageIO.read(p.toFile());
+            boolean ok = bi != null && bi.getWidth() > 1 && bi.getHeight() > 1;
+            if (!ok && skipped != null) skipped.add(p.toString());
+            return ok;
+        } catch (Exception e) {
+            if (skipped != null) skipped.add(p.toString());
+            return false;
+        }
+    }
+
+    /** Always write 3-channel RGB; if grayscaleAppearance=true, use gray look but keep 3 channels. */
+    private static void transformAndSave(Path src, Path dst, int targetSize, boolean grayscaleAppearance) throws IOException {
+        BufferedImage img = ImageIO.read(src.toFile());
+        if (img == null) throw new IOException("unreadable image");
+
+        BufferedImage scaled = Scalr.resize(img, Scalr.Method.QUALITY, Scalr.Mode.AUTOMATIC, targetSize, targetSize);
+
+        BufferedImage canvasRgb = new BufferedImage(targetSize, targetSize, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = canvasRgb.createGraphics();
+        g.setColor(Color.BLACK);
+        g.fillRect(0, 0, targetSize, targetSize);
+        int x = (targetSize - scaled.getWidth()) / 2;
+        int y = (targetSize - scaled.getHeight()) / 2;
+        g.drawImage(scaled, x, y, null);
+        g.dispose();
+
+        if (grayscaleAppearance) {
+            BufferedImage gray = new BufferedImage(targetSize, targetSize, BufferedImage.TYPE_BYTE_GRAY);
+            ColorConvertOp op = new ColorConvertOp(ColorSpace.getInstance(ColorSpace.CS_GRAY), null);
+            op.filter(canvasRgb, gray);
+            BufferedImage backToRgb = new BufferedImage(targetSize, targetSize, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g2 = backToRgb.createGraphics();
+            g2.drawImage(gray, 0, 0, null);
+            g2.dispose();
+            canvasRgb = backToRgb;
+        }
+
+        Files.createDirectories(dst.getParent());
+        ImageIO.write(canvasRgb, "jpg", dst.toFile());
     }
 }
-
