@@ -117,7 +117,6 @@ public class ClassificationModel {
             // Tap NACH Pooling
             addTap(net, prefix + "_pool");
 
-            // Optional: historischer Name (post-pool)
             addTap(net, prefix);
 
             outChannels = Math.min(outChannels * 2, cap);
@@ -159,10 +158,8 @@ public class ClassificationModel {
         net.add(new LambdaBlock(list -> {
             try {
                 NDArray a = list.head();
-                // Nur sinnvolle Feature-Maps kopieren (>=3D) oder Vektoren (1D/2D)
                 int dim = a.getShape().dimension();
                 if (dim >= 1) {
-                    // in eigenem Manager materialisieren, damit Lifetime unabhängig ist
                     float[] data = a.toFloatArray();
                     NDArray snap = snapManager.create(data, a.getShape());
                     lastActivations.put(name, snap);

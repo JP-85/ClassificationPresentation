@@ -55,7 +55,7 @@ public class CNNPipeline {
         Settings.Setting setting = settings.get(cfg.setting);
         log.info("Using setting: {}", setting);
 
-        // 2) Daten vorbereiten (deterministischer Split + Resize + Appearance)
+        // 2) Daten vorbereiten
         String run = DateTimeFormatter.ofPattern("yyyyMMdd-HHmm").format(LocalDateTime.now());
         var pp = Preprocessing.prepareDatasets(
                 Paths.get(cfg.raw),
@@ -77,7 +77,7 @@ public class CNNPipeline {
         }
         log.info("Classes: {}", classes);
 
-        // 4) DJL-Datasets (always 3-channel RGB after preprocessing)
+        // 4) DJL-Datasets
         RandomAccessDataset train = buildImageFolder(pp.trainRoot(), cfg.imageSize, setting.batchSize, cfg.shuffleTrain);
         RandomAccessDataset val   = buildImageFolder(pp.valRoot(),   cfg.imageSize, setting.batchSize, false);
 
@@ -89,7 +89,7 @@ public class CNNPipeline {
         Path modelOut = Paths.get("output/models");
         cm.save(modelOut, classes);
 
-        // 7) Aktivierungen schreiben (optional)
+        // 7) Aktivierungen schreiben
         if (cfg.saveActivations) {
             var acts = cm.getLastActivationsSnapshot();
             Path actDir = Paths.get("output/activations/" + setting.name);
@@ -115,21 +115,21 @@ public class CNNPipeline {
         log.info("Done. See: {}", metricsDir.toAbsolutePath());
     }
 
-    // ---------------- Zoo demo ----------------
+    // über Zoo
     public static void runZoo(PipelineConfig cfg) throws IOException, TranslateException {
         String backbone = cfg.zooBackbone == null ? "resnet18" : cfg.zooBackbone.toLowerCase(Locale.ROOT);
         String layers = switch (backbone) {
             case "resnet34" -> "34";
             case "resnet50" -> "50";
             case "resnet101" -> "101";
-            default -> "18"; // resnet18
+            default -> "18";
         };
 
         Criteria<Image, Classifications> criteria = Criteria.builder()
                 .optApplication(Application.CV.IMAGE_CLASSIFICATION)
                 .setTypes(Image.class, Classifications.class)
                 .optEngine("PyTorch")
-                .optFilter("layers", layers)   // pick resnet depth
+                .optFilter("layers", layers)
                 .build();
 
         List<Path> samples = pickSampleImages(Paths.get(cfg.raw));
@@ -144,13 +144,11 @@ public class CNNPipeline {
                 Classifications result = predictor.predict(img);
                 String top1 = result.best().toString();
                 Files.writeString(outDir.resolve(p.getFileName().toString().replaceAll("\\.[^.]+$", "") + "_pred.txt"), top1);
-                // optional: copy the image next to prediction
+
                 Files.copy(p, outDir.resolve(p.getFileName()));
                 log.info("{} -> {}", p.getFileName(), top1);
             }
-        } catch (ModelNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (MalformedModelException e) {
+        } catch (ModelNotFoundException | MalformedModelException e) {
             throw new RuntimeException(e);
         }
         log.info("Zoo demo outputs at {}", outDir.toAbsolutePath());

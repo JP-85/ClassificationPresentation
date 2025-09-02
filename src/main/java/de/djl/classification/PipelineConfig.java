@@ -29,8 +29,8 @@ public class PipelineConfig {
 
     public boolean saveActivations = false; // default off
 
-    public List<String> vizLayers;   // optional; Liste von Layernamen
-    public List<String> vizPerClass; // optional; z.B. ["Cat","Dog"]
+    public List<String> vizLayers;
+    public List<String> vizPerClass;
 
 
     public static PipelineConfig loadFromResources(String resource) {

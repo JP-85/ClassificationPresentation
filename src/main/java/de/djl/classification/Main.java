@@ -10,13 +10,7 @@ public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) throws Exception {
-        // Choose config resource by commenting
-        String configResource = "runconfig.json";            // training pipeline
-        // String configResource = "configs/baseline_small.json";
-        // String configResource = "configs/fast_demo.json";
-
-        // To run a model-zoo demo quickly set `zoo=true` in the chosen config,
-        // or pass --zoo true on CLI.
+        String configResource = "runconfig.json";
 
         log.info("Loading pipeline config from resource: {}", configResource);
         PipelineConfig cfg = PipelineConfig.loadFromResources(configResource);
