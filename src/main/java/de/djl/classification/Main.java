@@ -1,28 +1,32 @@
+// =====================
+// File: src/main/java/de/djl/classification/Main.java
+// =====================
 package de.djl.classification;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class Main {
-    public static void main(String[] args) {
-        // Erstellen eines neuen Datensatzes
-        CNNPipeline pipeline = CNNPipeline.builder()
-                .addPreprocessing("PetImages",
-                        "cats_dogs_33",
-                        33,
-                        33,
-                        true,
-                        false);
-        pipeline.run();
-        pipeline.close();
+    private static final Logger log = LoggerFactory.getLogger(Main.class);
 
-        System.out.println("\n------------------------------------------------\n");
+    public static void main(String[] args) throws Exception {
+        // Choose config resource by commenting
+        String configResource = "runconfig.json";            // training pipeline
+        // String configResource = "configs/baseline_small.json";
+        // String configResource = "configs/fast_demo.json";
 
-        // Beispiel 2: Laden eines bestehenden Datensatzes
-        CNNPipeline testPipeline = CNNPipeline.builder()
-                .addPreprocessing("cats_dogs_33");
-        testPipeline.run();
+        // To run a model-zoo demo quickly set `zoo=true` in the chosen config,
+        // or pass --zoo true on CLI.
 
-        System.out.println(testPipeline.getDataSet());
-        System.out.println(testPipeline.getDataSet().getMetadata());
+        log.info("Loading pipeline config from resource: {}", configResource);
+        PipelineConfig cfg = PipelineConfig.loadFromResources(configResource);
+        cfg.applyOverrides(args);
 
-        testPipeline.close();
+        if (cfg.zoo) {
+            log.info("Running model-zoo demo with backbone: {}", cfg.zooBackbone);
+            CNNPipeline.runZoo(cfg);
+        } else {
+            CNNPipeline.run(cfg);
+        }
     }
 }

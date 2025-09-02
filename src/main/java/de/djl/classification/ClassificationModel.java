@@ -9,7 +9,11 @@ import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.DataType;
 import ai.djl.ndarray.types.Shape;
-import ai.djl.nn.*;
+import ai.djl.nn.Activation;
+import ai.djl.nn.Block;
+import ai.djl.nn.Blocks;
+import ai.djl.nn.LambdaBlock;
+import ai.djl.nn.SequentialBlock;
 import ai.djl.nn.convolutional.Conv2d;
 import ai.djl.nn.core.Linear;
 import ai.djl.nn.norm.BatchNorm;
@@ -32,9 +36,17 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+/**
+ * AlexNet-artiges Klassifikationsnetz mit konfigurierbaren Taps (pre/pool/fc/logits)
+ * für Aktivierungsvisualisierung. Kompatibel mit DJL 0.33.
+ */
 public class ClassificationModel {
 
     public static final int DEFAULT_IMAGE_SIZE = 224;
+
+    // === Expose for ActivationViewer ===
+    public Model getModel() { return model; }
+    public Loss  getLoss()  { return loss;  }
 
     public static class History {
         public final List<Double> trainLoss = new ArrayList<>();
@@ -52,9 +64,9 @@ public class ClassificationModel {
     private final Model model;
     private final int numClasses;
 
-    private final boolean enableTaps; // from config
-    private final NDManager snapManager;               // null when taps disabled
-    private final Map<String, NDArray> lastActivations; // empty when taps disabled
+    private final boolean enableTaps;
+    private final NDManager snapManager;               // only used when enableTaps=true
+    private final Map<String, NDArray> lastActivations; // same
 
     public ClassificationModel(Settings.Setting setting, int numClasses, boolean enableTaps) {
         this.setting = setting;
@@ -71,6 +83,10 @@ public class ClassificationModel {
         this.model.setBlock(buildBlock());
     }
 
+    /**
+     * Baut das Netz mit SAME-ähnlichem Padding, optionalem GlobalAvgPool und Taps:
+     * conv{i}_pre, conv{i}_pool, conv{i} (Kompat), fc{j}, logits.
+     */
     public Block buildBlock() {
         SequentialBlock net = new SequentialBlock();
 
@@ -83,6 +99,7 @@ public class ClassificationModel {
 
         for (int i = 0; i < setting.convLayers; i++) {
             String prefix = "conv" + (i + 1);
+
             net.add(Conv2d.builder()
                     .setKernelShape(new Shape(setting.kernel[0], setting.kernel[1]))
                     .optStride(new Shape(setting.stride, setting.stride))
@@ -91,8 +108,18 @@ public class ClassificationModel {
                     .build());
             net.add(BatchNorm.builder().build());
             net.add(activationBlock(setting.activation));
+
+            // Tap VOR Pooling
+            addTap(net, prefix + "_pre");
+
             net.add(Pool.maxPool2dBlock(new Shape(setting.maxPoolSize[0], setting.maxPoolSize[1])));
+
+            // Tap NACH Pooling
+            addTap(net, prefix + "_pool");
+
+            // Optional: historischer Name (post-pool)
             addTap(net, prefix);
+
             outChannels = Math.min(outChannels * 2, cap);
         }
 
@@ -104,8 +131,13 @@ public class ClassificationModel {
         for (int i = 0; i < setting.denseUnits.length; i++) {
             net.add(Linear.builder().setUnits(setting.denseUnits[i]).build());
             net.add(activationBlock(setting.activation));
-            if (setting.dropout > 0) net.add(Dropout.builder().optRate((float) setting.dropout).build());
+
+            // Tap nach Aktivierung (vor Dropout)
             addTap(net, "fc" + (i + 1));
+
+            if (setting.dropout > 0) {
+                net.add(Dropout.builder().optRate((float) setting.dropout).build());
+            }
         }
 
         net.add(Linear.builder().setUnits(numClasses).build());
@@ -121,18 +153,21 @@ public class ClassificationModel {
         return Activation.reluBlock();
     }
 
+    /** Registriert einen Lambda-Tap, der die aktuelle Aktivierung in eine Map kopiert. */
     private void addTap(SequentialBlock net, String name) {
         if (!enableTaps) return;
         net.add(new LambdaBlock(list -> {
             try {
                 NDArray a = list.head();
-                if (a.getShape().dimension() >= 3) {
-                    long[] shp = a.getShape().getShape();
+                // Nur sinnvolle Feature-Maps kopieren (>=3D) oder Vektoren (1D/2D)
+                int dim = a.getShape().dimension();
+                if (dim >= 1) {
+                    // in eigenem Manager materialisieren, damit Lifetime unabhängig ist
                     float[] data = a.toFloatArray();
-                    NDArray snap = snapManager.create(data, new Shape(shp));
+                    NDArray snap = snapManager.create(data, a.getShape());
                     lastActivations.put(name, snap);
                 }
-            } catch (Throwable ignore) { }
+            } catch (Throwable ignore) { /* taps sollen niemals forward brechen */ }
             return list;
         }));
     }
@@ -147,13 +182,15 @@ public class ClassificationModel {
         };
     }
 
+    /**
+     * Klassisches Training mit stabiler Label-/Loss-Behandlung und Progressbar.
+     */
     public History fit(RandomAccessDataset train, RandomAccessDataset val, int epochs, int imageSize, int inChannels)
             throws IOException, TranslateException {
         History hist = new History();
 
         try (Trainer trainer = model.newTrainer(new DefaultTrainingConfig(loss).optOptimizer(makeOptimizer()))) {
             trainer.initialize(new Shape(1, inChannels, imageSize, imageSize));
-
             final int totalBatches = (int) Math.ceil((double) train.size() / Math.max(1, setting.batchSize));
 
             for (int epoch = 0; epoch < epochs; epoch++) {
@@ -164,25 +201,20 @@ public class ClassificationModel {
                 for (Batch batch : trainer.iterateDataset(train)) {
                     NDArray preds; NDArray L;
                     try (GradientCollector gc = trainer.newGradientCollector()) {
-                        preds = trainer.forward(batch.getData()).singletonOrThrow();
+                        preds = trainer.forward(batch.getData()).get(0); // (N,K)
 
-                        // ---- robust labels for loss (shape N, dtype int64) ----
+                        // Labels robust auf (N) int64
                         NDArray y = batch.getLabels().head().squeeze();
                         if (y.getShape().dimension() == 0) {
                             y = y.expandDims(0);
                         }
                         if (y.getShape().dimension() > 1) {
-                            long n = y.size();
-                            y = y.reshape(new Shape(n));
+                            y = y.reshape(new Shape(y.size()));
                         }
                         y = y.toType(DataType.INT64, false);
 
-                        NDArray Larr = loss.evaluate(new NDList(y), new NDList(preds));
-                        L = Larr;
-                        if (L.getShape().dimension() != 0) {
-                            L = L.mean();
-                        }
-
+                        NDArray Larr = loss.evaluate(new NDList(y), new NDList(preds)).get(0);
+                        L = (Larr.getShape().dimension() == 0) ? Larr : Larr.mean();
                         gc.backward(L);
                     }
                     trainer.step();
@@ -211,39 +243,30 @@ public class ClassificationModel {
                 int[][] cm = new int[][]{{0,0},{0,0}};
 
                 for (Batch batch : trainer.iterateDataset(val)) {
-                    NDArray preds = trainer.forward(batch.getData()).singletonOrThrow();
+                    NDArray preds = trainer.forward(batch.getData()).get(0);
 
                     NDArray y = batch.getLabels().head().squeeze();
-                    if (y.getShape().dimension() == 0) {
-                        y = y.expandDims(0);
-                    }
-                    if (y.getShape().dimension() > 1) {
-                        long n = y.size();
-                        y = y.reshape(new Shape(n));
-                    }
+                    if (y.getShape().dimension() == 0) y = y.expandDims(0);
+                    if (y.getShape().dimension() > 1) y = y.reshape(new Shape(y.size()));
                     y = y.toType(DataType.INT64, false);
 
-                    NDArray L = loss.evaluate(new NDList(y), new NDList(preds));
-                    if (L.getShape().dimension() != 0) {
-                        L = L.mean();
-                    }
+                    NDArray L = loss.evaluate(new NDList(y), new NDList(preds)).get(0);
+                    if (L.getShape().dimension() != 0) L = L.mean();
 
                     long bs = preds.getShape().get(0);
                     sumLossV += L.getFloat() * bs;
                     nV += bs;
 
-                    NDArray labels = y; // already int64 1D
-                    correctV += preds.argMax(1).eq(labels).toType(DataType.INT64, false).sum().getLong();
+                    correctV += preds.argMax(1).eq(y).toType(DataType.INT64, false).sum().getLong();
 
                     if (numClasses == 2) {
                         long[] p = preds.argMax(1).toLongArray();
-                        long[] yy = labels.toLongArray();
+                        long[] yy = y.toLongArray();
                         for (int i = 0; i < p.length; i++) {
                             int yi = (int) yy[i], pi = (int) p[i];
                             if (yi>=0 && yi<2 && pi>=0 && pi<2) cm[yi][pi]++;
                         }
                     }
-
                     batch.close();
                 }
 

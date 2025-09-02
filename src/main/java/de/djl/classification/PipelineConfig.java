@@ -6,7 +6,9 @@ package de.djl.classification;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+
 import java.io.InputStream;
+import java.util.List;
 
 public class PipelineConfig {
     public String setting = "baseline";
@@ -26,6 +28,10 @@ public class PipelineConfig {
     public String zooBackbone = "resnet";
 
     public boolean saveActivations = false; // default off
+
+    public List<String> vizLayers;   // optional; Liste von Layernamen
+    public List<String> vizPerClass; // optional; z.B. ["Cat","Dog"]
+
 
     public static PipelineConfig loadFromResources(String resource) {
         try (InputStream is = PipelineConfig.class.getClassLoader().getResourceAsStream(resource)) {

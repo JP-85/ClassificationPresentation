@@ -5,14 +5,15 @@
   "datasetsRoot": "data/datasets",
   "valSplit": 0.2,
   "seed": 42,
-  "epochs": 2,
+  "epochs": 1,
   "imageSize": 224,
   "grayscale": false,
   "shuffleTrain": true,
-
-  "zoo": false,
-  "zooBackbone": "resnet18",
-  "saveActivations": false
+  "saveActivations": true,
+  "vizLayers": ["conv1_pre","conv1_pool","conv2_pre","conv2_pool","logits"],
+  "vizPerClass": ["Cat","Dog"],
+  "vizTileSize": 96,
+  "zoo": false
 },
 {
   "setting": "deep_slow",

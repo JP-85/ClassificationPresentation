@@ -106,6 +106,45 @@ public class ImageUtils {
         return outFile;
     }
 
+    /** Saves a 1D/2D vector as a horizontal stripe image (values normalized 0..1). */
+    public static Path saveVectorStripe(NDArray vec, Path outFile, int height) throws IOException {
+        NDArray v = vec.squeeze();
+        long[] sh = v.getShape().getShape();
+        int W;
+        if (sh.length == 1) {
+            W = (int) sh[0];
+        } else if (sh.length == 2) {
+            long n0 = sh[0];
+            long n1 = sh[1];
+            W = (int) Math.max(n0, n1);
+            v = v.reshape(new ai.djl.ndarray.types.Shape(n0 * n1));
+        } else {
+            throw new IOException("saveVectorStripe expects 1D/2D, got " + v.getShape());
+        }
+
+        float min = v.min().getFloat();
+        float max = v.max().getFloat();
+        float[] arr = v.toFloatArray();
+
+        BufferedImage img = new BufferedImage(W, height, BufferedImage.TYPE_BYTE_GRAY);
+        for (int x = 0; x < W; x++) {
+            int gray;
+            if (max > min) {
+                gray = (int) (255f * (arr[x] - min) / (max - min));
+            } else {
+                gray = 0;
+            }
+            int rgb = (gray << 16) | (gray << 8) | gray;
+            for (int y = 0; y < height; y++) {
+                img.setRGB(x, y, rgb);
+            }
+        }
+        Files.createDirectories(outFile.getParent());
+        ImageIO.write(img, "png", outFile.toFile());
+        return outFile;
+    }
+
+
     private static void drawCentered(Graphics2D g, String s, int cx, int cy) {
         var fm = g.getFontMetrics();
         int x = cx - fm.stringWidth(s)/2;
