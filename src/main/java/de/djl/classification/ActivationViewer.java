@@ -1,6 +1,3 @@
-// =====================
-// File: src/main/java/de/djl/classification/ActivationViewer.java
-// =====================
 package de.djl.classification;
 
 import ai.djl.modality.cv.Image;
@@ -29,14 +26,9 @@ import ai.djl.training.Trainer;
 import java.nio.file.Path;
 import java.util.Map;
 
-/**
- * Helper to capture and save activations of a specific layer.
- * NOTE: ClassificationModel must be built with enableTaps=true so taps are present.
- */
 public class ActivationViewer {
     private static final Logger log = LoggerFactory.getLogger(ActivationViewer.class);
 
-    /** Saves a feature-map (C,H,W) as a tiled grid PNG. */
     public static void visualizeLayerGrid(
             ClassificationModel cm,
             RandomAccessDataset dataset,
@@ -61,7 +53,6 @@ public class ActivationViewer {
         }
     }
 
-    /** Flexible saver: if activation is 3D/4D -> grid, if 1D/2D -> stripe. */
     public static void visualizeLayerFlexible(
             ClassificationModel cm,
             RandomAccessDataset dataset,
@@ -91,10 +82,6 @@ public class ActivationViewer {
         }
     }
 
-    /**
-     * NEW: Visualize a layer from a single image file path (no dataset needed).
-     * Applies Resize -> ToTensor-equivalent -> Normalize, then forwards and saves.
-     */
     public static void visualizeLayerFromImagePath(
             ClassificationModel cm,
             Path imagePath,
@@ -107,19 +94,18 @@ public class ActivationViewer {
             System.out.println("Available taps: " + cm.getLastActivationsSnapshot().keySet());
             trainer.initialize(new Shape(1, 3, imageSize, imageSize));
 
-            // Load and preprocess like our dataset: Resize -> ToTensor -> Normalize
             Image img = ImageFactory.getInstance().fromFile(imagePath);
-            NDArray x = img.toNDArray(trainer.getManager());        // HWC, [0..255]
-            x = NDImageUtils.resize(x, imageSize, imageSize);       // HWC
-            x = NDImageUtils.toTensor(x);                           // CHW, [0..1]
+            NDArray x = img.toNDArray(trainer.getManager());
+            x = NDImageUtils.resize(x, imageSize, imageSize);
+            x = NDImageUtils.toTensor(x);
             x = NDImageUtils.normalize(
                     x,
                     new float[]{0.485f, 0.456f, 0.406f},
                     new float[]{0.229f, 0.224f, 0.225f}
             );
-            x = x.expandDims(0);                                    // (1,3,H,W)
+            x = x.expandDims(0);
 
-            trainer.forward(new NDList(x)); // triggers taps
+            trainer.forward(new NDList(x));
             Map<String, NDArray> acts = cm.getLastActivationsSnapshot();
             NDArray feat = acts.get(layerName);
             if (feat == null) {

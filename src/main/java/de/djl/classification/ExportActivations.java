@@ -1,6 +1,3 @@
-// =====================
-// File: src/main/java/de/djl/classification/ExportActivations.java
-// =====================
 package de.djl.classification;
 
 import ai.djl.basicdataset.cv.classification.ImageFolder;
@@ -21,13 +18,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * One-off CLI to export activations as PNGs so they can be shown without running the model live.
- *
- * Usage examples:
- *   mvn -q -DskipTests exec:java -Dexec.mainClass=de.djl.classification.ExportActivations \
- *     -Dexec.args="--config runconfig.json --layers conv1,conv1_pool,fc1,logits --classes Cat,Dog --tile 96"
- */
 public class ExportActivations {
     private static final java.util.Set<String> ALLOWED_EXT =
             new java.util.HashSet<>(java.util.Arrays.asList(
@@ -74,7 +64,6 @@ public class ExportActivations {
                 cfg.grayscale
         );
 
-        // Determine available classes from VAL root
         List<String> classes;
         try (var s = Files.list(pp.valRoot())) {
             classes = s.filter(Files::isDirectory)
@@ -91,13 +80,11 @@ public class ExportActivations {
                 : (cfg.vizLayers != null ? cfg.vizLayers
                 : List.of("conv1","conv2","fc1","logits"));
 
-                // Build model with taps enabled
         ClassificationModel cm = new ClassificationModel(setting, classes.size(), true);
 
         Path outRoot = Paths.get("output/activations/export");
         Files.createDirectories(outRoot);
 
-        // Instead of ImageFolder per-class (which needs subfolders), pick ONE image path per class
         for (String cls : wantClasses) {
             Path sample = pickOneImage(pp.valRoot().resolve(cls));
             if (sample == null) {
@@ -124,7 +111,6 @@ public class ExportActivations {
     }
 
 
-    // (kept for reference but unused now)
     private static RandomAccessDataset buildImageFolder(Path root, int imageSize, int batch, boolean shuffle) throws Exception {
         ImageFolder dataset = ImageFolder.builder()
                 .setRepositoryPath(root)

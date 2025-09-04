@@ -1,6 +1,3 @@
-// =====================
-// File: src/main/java/de/djl/classification/ClassificationModel.java
-// =====================
 package de.djl.classification;
 
 import ai.djl.Model;
@@ -44,7 +41,6 @@ public class ClassificationModel {
 
     public static final int DEFAULT_IMAGE_SIZE = 224;
 
-    // === Expose for ActivationViewer ===
     public Model getModel() { return model; }
     public Loss  getLoss()  { return loss;  }
 
@@ -83,10 +79,6 @@ public class ClassificationModel {
         this.model.setBlock(buildBlock());
     }
 
-    /**
-     * Baut das Netz mit SAME-ähnlichem Padding, optionalem GlobalAvgPool und Taps:
-     * conv{i}_pre, conv{i}_pool, conv{i} (Kompat), fc{j}, logits.
-     */
     public Block buildBlock() {
         SequentialBlock net = new SequentialBlock();
 
@@ -109,12 +101,10 @@ public class ClassificationModel {
             net.add(BatchNorm.builder().build());
             net.add(activationBlock(setting.activation));
 
-            // Tap VOR Pooling
             addTap(net, prefix + "_pre");
 
             net.add(Pool.maxPool2dBlock(new Shape(setting.maxPoolSize[0], setting.maxPoolSize[1])));
 
-            // Tap NACH Pooling
             addTap(net, prefix + "_pool");
 
             addTap(net, prefix);
@@ -131,7 +121,6 @@ public class ClassificationModel {
             net.add(Linear.builder().setUnits(setting.denseUnits[i]).build());
             net.add(activationBlock(setting.activation));
 
-            // Tap nach Aktivierung (vor Dropout)
             addTap(net, "fc" + (i + 1));
 
             if (setting.dropout > 0) {
@@ -152,7 +141,6 @@ public class ClassificationModel {
         return Activation.reluBlock();
     }
 
-    /** Registriert einen Lambda-Tap, der die aktuelle Aktivierung in eine Map kopiert. */
     private void addTap(SequentialBlock net, String name) {
         if (!enableTaps) return;
         net.add(new LambdaBlock(list -> {
@@ -179,9 +167,6 @@ public class ClassificationModel {
         };
     }
 
-    /**
-     * Klassisches Training mit stabiler Label-/Loss-Behandlung und Progressbar.
-     */
     public History fit(RandomAccessDataset train, RandomAccessDataset val, int epochs, int imageSize, int inChannels)
             throws IOException, TranslateException {
         History hist = new History();
@@ -198,9 +183,8 @@ public class ClassificationModel {
                 for (Batch batch : trainer.iterateDataset(train)) {
                     NDArray preds; NDArray L;
                     try (GradientCollector gc = trainer.newGradientCollector()) {
-                        preds = trainer.forward(batch.getData()).get(0); // (N,K)
+                        preds = trainer.forward(batch.getData()).getFirst(); // (N,K)
 
-                        // Labels robust auf (N) int64
                         NDArray y = batch.getLabels().head().squeeze();
                         if (y.getShape().dimension() == 0) {
                             y = y.expandDims(0);
@@ -240,7 +224,7 @@ public class ClassificationModel {
                 int[][] cm = new int[][]{{0,0},{0,0}};
 
                 for (Batch batch : trainer.iterateDataset(val)) {
-                    NDArray preds = trainer.forward(batch.getData()).get(0);
+                    NDArray preds = trainer.forward(batch.getData()).getFirst();
 
                     NDArray y = batch.getLabels().head().squeeze();
                     if (y.getShape().dimension() == 0) y = y.expandDims(0);

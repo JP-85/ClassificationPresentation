@@ -1,6 +1,4 @@
-// =====================
-// File: src/main/java/de/djl/classification/PipelineConfig.java
-// =====================
+
 package de.djl.classification;
 
 import com.fasterxml.jackson.core.type.TypeReference;

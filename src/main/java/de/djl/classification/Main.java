@@ -1,6 +1,3 @@
-// =====================
-// File: src/main/java/de/djl/classification/Main.java
-// =====================
 package de.djl.classification;
 
 import org.slf4j.Logger;

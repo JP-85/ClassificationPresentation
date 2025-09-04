@@ -1,6 +1,3 @@
-// =====================
-// File: src/main/java/de/djl/classification/CNNPipeline.java
-// =====================
 package de.djl.classification;
 
 import ai.djl.Application;
@@ -50,12 +47,10 @@ public class CNNPipeline {
     }
 
     public static void run(PipelineConfig cfg) throws Exception {
-        // 1) Netz-Settings laden
         Settings settings = Settings.loadFromResources(cfg.settingsJson);
         Settings.Setting setting = settings.get(cfg.setting);
         log.info("Using setting: {}", setting);
 
-        // 2) Daten vorbereiten
         String run = DateTimeFormatter.ofPattern("yyyyMMdd-HHmm").format(LocalDateTime.now());
         var pp = Preprocessing.prepareDatasets(
                 Paths.get(cfg.raw),
@@ -67,7 +62,6 @@ public class CNNPipeline {
                 cfg.grayscale
         );
 
-        // 3) Klassen aus Ordnern
         List<String> classes;
         try (var stream = Files.list(pp.trainRoot())) {
             classes = stream.filter(Files::isDirectory)
@@ -77,19 +71,15 @@ public class CNNPipeline {
         }
         log.info("Classes: {}", classes);
 
-        // 4) DJL-Datasets
         RandomAccessDataset train = buildImageFolder(pp.trainRoot(), cfg.imageSize, setting.batchSize, cfg.shuffleTrain);
         RandomAccessDataset val   = buildImageFolder(pp.valRoot(),   cfg.imageSize, setting.batchSize, false);
 
-        // 5) Trainieren
         ClassificationModel cm = new ClassificationModel(setting, classes.size(), cfg.saveActivations);
         ClassificationModel.History hist = cm.fit(train, val, cfg.epochs, cfg.imageSize, 3);
 
-        // 6) Modell speichern
         Path modelOut = Paths.get("output/models");
         cm.save(modelOut, classes);
 
-        // 7) Aktivierungen schreiben
         if (cfg.saveActivations) {
             var acts = cm.getLastActivationsSnapshot();
             Path actDir = Paths.get("output/activations/" + setting.name);
@@ -106,7 +96,6 @@ public class CNNPipeline {
             }
         }
 
-        // 8) Metriken/Plots
         Path metricsDir = Paths.get("output/metrics/" + setting.name);
         Plotter.saveLossAcc(hist.trainLoss, hist.valLoss, hist.trainAcc, hist.valAcc, metricsDir, "training");
         if (classes.size()==2) {
@@ -115,7 +104,6 @@ public class CNNPipeline {
         log.info("Done. See: {}", metricsDir.toAbsolutePath());
     }
 
-    // über Zoo
     public static void runZoo(PipelineConfig cfg) throws IOException, TranslateException {
         String backbone = cfg.zooBackbone == null ? "resnet18" : cfg.zooBackbone.toLowerCase(Locale.ROOT);
         String layers = switch (backbone) {

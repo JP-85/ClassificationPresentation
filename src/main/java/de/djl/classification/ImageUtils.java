@@ -1,6 +1,3 @@
-// =====================
-// File: src/main/java/de/djl/classification/ImageUtils.java
-// =====================
 package de.djl.classification;
 
 import ai.djl.ndarray.NDArray;
@@ -73,14 +70,12 @@ public class ImageUtils {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setColor(Color.WHITE); g.fillRect(0, 0, size, size);
 
-        // Grid
         g.setColor(Color.GRAY);
         for (int i=0;i<=2;i++) {
             g.drawLine(pad, pad + i*cell, pad + 2*cell, pad + i*cell);
             g.drawLine(pad + i*cell, pad, pad + i*cell, pad + 2*cell);
         }
 
-        // Numbers
         g.setColor(Color.BLACK);
         g.setFont(g.getFont().deriveFont(Font.BOLD, 20f));
         for (int r=0; r<2; r++) {
@@ -91,7 +86,6 @@ public class ImageUtils {
             }
         }
 
-        // Axis labels
         g.setFont(g.getFont().deriveFont(Font.PLAIN, 16f));
         drawCentered(g, "Pred", pad + cell, pad - 30);
         drawCentered(g, "True", pad - 35, pad + cell);
@@ -106,7 +100,6 @@ public class ImageUtils {
         return outFile;
     }
 
-    /** Saves a 1D/2D vector as a horizontal stripe image (values normalized 0..1). */
     public static Path saveVectorStripe(NDArray vec, Path outFile, int height) throws IOException {
         NDArray v = vec.squeeze();
         long[] sh = v.getShape().getShape();

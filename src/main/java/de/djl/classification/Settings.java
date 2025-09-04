@@ -14,21 +14,20 @@ public class Settings {
     public static class Setting {
         public String name;
         public int stride;
-        public int[] kernel;        // [kh, kw]
-        public int[] maxPoolSize;   // [ph, pw]
-        public String optimizer;    // adam | sgd | rmsprop
+        public int[] kernel;
+        public int[] maxPoolSize;
+        public String optimizer;
         public double learningRate;
-        public int convLayers;      // number of conv blocks
-        public int[] denseUnits;    // e.g., [128], [256,128]
-        public String activation;   // relu | leakyrelu
+        public int convLayers;
+        public int[] denseUnits;
+        public String activation;
         public int batchSize;
-        public double dropout;      // 0..1
-        public Double leakyAlpha;   // optional
+        public double dropout;
+        public Double leakyAlpha;
 
-        // NEW: let you tune channel width & head
-        public Integer baseChannels;   // default 64 (or 32/16 for small images)
-        public Integer maxChannels;    // default 512
-        public Boolean globalAvgPool;  // default false
+        public Integer baseChannels;
+        public Integer maxChannels;
+        public Boolean globalAvgPool;
 
         @Override public String toString() {
             return String.format(Locale.ROOT,

@@ -1,6 +1,3 @@
-// =====================
-// File: src/main/java/de/djl/classification/Preprocessing.java
-// =====================
 package de.djl.classification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,7 +29,7 @@ public class Preprocessing {
         public Map<String, Integer> valCount;
         public Instant createdAt = Instant.now();
         public int targetSize;
-        public boolean grayscaleAppearance; // images still saved as 3-channel RGB
+        public boolean grayscaleAppearance;
         public List<String> skipped = new ArrayList<>();
     }
 
@@ -63,7 +60,7 @@ public class Preprocessing {
 
         List<Path> classDirs;
         try (var stream = Files.list(rawRoot)) {
-            classDirs = stream.filter(Files::isDirectory).sorted().collect(Collectors.toList());
+            classDirs = stream.filter(Files::isDirectory).sorted().toList();
         }
         if (classDirs.isEmpty()) throw new IOException("No class folders under " + rawRoot);
 
@@ -136,16 +133,13 @@ public class Preprocessing {
     }
 
     private static boolean isSupportedImage(Path p, List<String> skipped) {
-        // Ext ok?
         if (!hasAllowedExt(p)) return false;
-        // MIME, wenn ermittelbar
         String ct = null;
         try { ct = Files.probeContentType(p); } catch (Exception ignore) {}
         if (ct != null && !ct.startsWith("image/")) {
             if (skipped != null) skipped.add(p.toString() + " [mime=" + ct + "]");
             return false;
         }
-        // Tatsächlich lesbar?
         return isReadableImage(p, skipped);
     }
 
@@ -161,7 +155,6 @@ public class Preprocessing {
         }
     }
 
-    /** Always write 3-channel RGB; if grayscaleAppearance=true, use gray look but keep 3 channels. */
     private static void transformAndSave(Path src, Path dst, int targetSize, boolean grayscaleAppearance) throws IOException {
         BufferedImage img = ImageIO.read(src.toFile());
         if (img == null) throw new IOException("unreadable image");
