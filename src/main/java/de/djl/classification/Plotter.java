@@ -12,7 +12,7 @@ import java.util.stream.IntStream;
 
 public class Plotter {
 
-    public static Path saveLossAcc(
+    public static void saveLossAcc(
             List<Double> lossTrain,
             List<Double> lossVal,
             List<Double> accTrain,
@@ -24,7 +24,7 @@ public class Plotter {
 
         int n = Math.min(Math.min(lossTrain.size(), lossVal.size()), Math.min(accTrain.size(), accVal.size()));
         if (n <= 0) {
-            return outDir;
+            return;
         }
 
         double[] x = IntStream.rangeClosed(1, n).asDoubleStream().toArray();
@@ -49,6 +49,5 @@ public class Plotter {
         Path accPng = outDir.resolve(baseName + "_accuracy.png");
         BitmapEncoder.saveBitmap(accChart, accPng.toString(), BitmapEncoder.BitmapFormat.PNG);
 
-        return outDir;
     }
 }

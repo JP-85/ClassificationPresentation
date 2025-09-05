@@ -1,10 +1,5 @@
 package de.djl.classification;
 
-import ai.djl.basicdataset.cv.classification.ImageFolder;
-import ai.djl.modality.cv.transform.Normalize;
-import ai.djl.modality.cv.transform.Resize;
-import ai.djl.modality.cv.transform.ToTensor;
-import ai.djl.training.dataset.RandomAccessDataset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,8 +10,6 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class ExportActivations {
     private static final java.util.Set<String> ALLOWED_EXT =
@@ -108,20 +101,5 @@ public class ExportActivations {
                     .findFirst()
                     .orElse(null);
         }
-    }
-
-
-    private static RandomAccessDataset buildImageFolder(Path root, int imageSize, int batch, boolean shuffle) throws Exception {
-        ImageFolder dataset = ImageFolder.builder()
-                .setRepositoryPath(root)
-                .addTransform(new Resize(imageSize, imageSize))
-                .addTransform(new ToTensor())
-                .addTransform(new Normalize(
-                        new float[]{0.485f, 0.456f, 0.406f},
-                        new float[]{0.229f, 0.224f, 0.225f}))
-                .setSampling(batch, shuffle)
-                .build();
-        dataset.prepare();
-        return dataset;
     }
 }

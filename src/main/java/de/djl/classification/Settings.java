@@ -34,7 +34,7 @@ public class Settings {
                     "%s conv=%d kernel=%s stride=%d pool=%s dense=%s act=%s opt=%s lr=%.4g bs=%d drop=%.2f base=%s max=%s gap=%s",
                     name, convLayers, Arrays.toString(kernel), stride, Arrays.toString(maxPoolSize),
                     Arrays.toString(denseUnits), activation, optimizer, learningRate, batchSize, dropout,
-                    String.valueOf(baseChannels), String.valueOf(maxChannels), String.valueOf(globalAvgPool));
+                    baseChannels, maxChannels, globalAvgPool);
         }
     }
 
@@ -50,13 +50,12 @@ public class Settings {
         return s;
     }
 
-    public Set<String> names() { return Collections.unmodifiableSet(byName.keySet()); }
-
     public static Settings loadFromResources(String resourcePath) throws IOException {
         ObjectMapper om = new ObjectMapper();
         try (InputStream is = Settings.class.getClassLoader().getResourceAsStream(resourcePath)) {
             if (is == null) throw new IOException("settings file not found in resources: " + resourcePath);
-            List<Setting> list = om.readValue(is, new TypeReference<List<Setting>>(){});
+            List<Setting> list = om.readValue(is, new TypeReference<>() {
+            });
             return new Settings(list);
         }
     }

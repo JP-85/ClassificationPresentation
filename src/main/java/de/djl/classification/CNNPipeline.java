@@ -164,7 +164,7 @@ public class CNNPipeline {
     private static RandomAccessDataset buildImageFolder(Path root, int imageSize, int batch, boolean shuffle) throws Exception {
         ImageFolder dataset = ImageFolder.builder()
                 .setRepositoryPath(root)
-                .addTransform(new Resize(imageSize, imageSize)) // force H=W
+                .addTransform(new Resize(imageSize, imageSize))
                 .addTransform(new ToTensor())
                 .addTransform(new Normalize(
                         new float[]{0.485f, 0.456f, 0.406f},

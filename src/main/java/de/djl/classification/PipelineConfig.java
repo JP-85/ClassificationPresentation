@@ -18,24 +18,23 @@ public class PipelineConfig {
     public long seed = 42L;
 
     public int epochs = 3;
-    public int imageSize = ClassificationModel.DEFAULT_IMAGE_SIZE; // e.g., 224
-    public boolean grayscale = false;   // only the visual appearance; files still RGB
+    public int imageSize = ClassificationModel.DEFAULT_IMAGE_SIZE;
+    public boolean grayscale = false;
     public boolean shuffleTrain = true;
 
-    public boolean zoo = false;   // reserved
+    public boolean zoo = false;
     public String zooBackbone = "resnet";
 
-    public boolean saveActivations = false; // default off
+    public boolean saveActivations = false;
 
     public List<String> vizLayers;
-    public List<String> vizPerClass;
-
 
     public static PipelineConfig loadFromResources(String resource) {
         try (InputStream is = PipelineConfig.class.getClassLoader().getResourceAsStream(resource)) {
             if (is == null) return new PipelineConfig();
             ObjectMapper om = new ObjectMapper();
-            return om.readValue(is, new TypeReference<PipelineConfig>(){});
+            return om.readValue(is, new TypeReference<>() {
+            });
         } catch (Exception e) {
             return new PipelineConfig();
         }
@@ -44,7 +43,6 @@ public class PipelineConfig {
     public void applyOverrides(String[] argv) {
         for (int i=0; i<argv.length; i++) {
             switch (argv[i]) {
-                case "--config" -> { }
                 case "--setting" -> this.setting = argv[++i];
                 case "--settings-json" -> this.settingsJson = argv[++i];
                 case "--raw" -> this.raw = argv[++i];

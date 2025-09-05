@@ -12,7 +12,7 @@ import java.nio.file.Path;
 
 public class ImageUtils {
 
-    public static Path saveFeatureGrid(NDArray feature, Path outFile, int tileSize) throws IOException {
+    public static void saveFeatureGrid(NDArray feature, Path outFile, int tileSize) throws IOException {
         NDArray f = feature.squeeze();
         long[] sh = f.getShape().getShape();
         if (sh.length == 4) {
@@ -60,10 +60,9 @@ public class ImageUtils {
         g.dispose();
         Files.createDirectories(outFile.getParent());
         ImageIO.write(grid, "png", outFile.toFile());
-        return outFile;
     }
 
-    public static Path saveConfusionMatrix2x2(int[][] cm, String[] labels, Path outFile) throws IOException {
+    public static void saveConfusionMatrix2x2(int[][] cm, String[] labels, Path outFile) throws IOException {
         int cell = 100; int pad = 60; int size = cell * 2 + pad * 2; // 2x2 matrix
         BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = img.createGraphics();
@@ -97,10 +96,9 @@ public class ImageUtils {
         g.dispose();
         Files.createDirectories(outFile.getParent());
         ImageIO.write(img, "png", outFile.toFile());
-        return outFile;
     }
 
-    public static Path saveVectorStripe(NDArray vec, Path outFile, int height) throws IOException {
+    public static void saveVectorStripe(NDArray vec, Path outFile, int height) throws IOException {
         NDArray v = vec.squeeze();
         long[] sh = v.getShape().getShape();
         int W;
@@ -134,7 +132,6 @@ public class ImageUtils {
         }
         Files.createDirectories(outFile.getParent());
         ImageIO.write(img, "png", outFile.toFile());
-        return outFile;
     }
 
 

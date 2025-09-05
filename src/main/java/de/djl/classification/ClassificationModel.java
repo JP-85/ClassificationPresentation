@@ -61,8 +61,8 @@ public class ClassificationModel {
     private final int numClasses;
 
     private final boolean enableTaps;
-    private final NDManager snapManager;               // only used when enableTaps=true
-    private final Map<String, NDArray> lastActivations; // same
+    private final NDManager snapManager;
+    private final Map<String, NDArray> lastActivations;
 
     public ClassificationModel(Settings.Setting setting, int numClasses, boolean enableTaps) {
         this.setting = setting;
@@ -183,7 +183,7 @@ public class ClassificationModel {
                 for (Batch batch : trainer.iterateDataset(train)) {
                     NDArray preds; NDArray L;
                     try (GradientCollector gc = trainer.newGradientCollector()) {
-                        preds = trainer.forward(batch.getData()).getFirst(); // (N,K)
+                        preds = trainer.forward(batch.getData()).getFirst();
 
                         NDArray y = batch.getLabels().head().squeeze();
                         if (y.getShape().dimension() == 0) {
@@ -194,7 +194,7 @@ public class ClassificationModel {
                         }
                         y = y.toType(DataType.INT64, false);
 
-                        NDArray Larr = loss.evaluate(new NDList(y), new NDList(preds)).get(0);
+                        NDArray Larr = loss.evaluate(new NDList(y), new NDList(preds));
                         L = (Larr.getShape().dimension() == 0) ? Larr : Larr.mean();
                         gc.backward(L);
                     }
@@ -231,7 +231,7 @@ public class ClassificationModel {
                     if (y.getShape().dimension() > 1) y = y.reshape(new Shape(y.size()));
                     y = y.toType(DataType.INT64, false);
 
-                    NDArray L = loss.evaluate(new NDList(y), new NDList(preds)).get(0);
+                    NDArray L = loss.evaluate(new NDList(y), new NDList(preds));
                     if (L.getShape().dimension() != 0) L = L.mean();
 
                     long bs = preds.getShape().get(0);

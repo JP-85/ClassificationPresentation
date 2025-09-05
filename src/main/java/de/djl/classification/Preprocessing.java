@@ -15,7 +15,6 @@ import java.awt.image.ColorConvertOp;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,7 +26,6 @@ public class Preprocessing {
         public List<String> classes;
         public Map<String, Integer> trainCount;
         public Map<String, Integer> valCount;
-        public Instant createdAt = Instant.now();
         public int targetSize;
         public boolean grayscaleAppearance;
         public List<String> skipped = new ArrayList<>();
@@ -137,7 +135,7 @@ public class Preprocessing {
         String ct = null;
         try { ct = Files.probeContentType(p); } catch (Exception ignore) {}
         if (ct != null && !ct.startsWith("image/")) {
-            if (skipped != null) skipped.add(p.toString() + " [mime=" + ct + "]");
+            if (skipped != null) skipped.add(p + " [mime=" + ct + "]");
             return false;
         }
         return isReadableImage(p, skipped);
